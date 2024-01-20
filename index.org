@@ -1,6 +1,6 @@
 #+title: Load Forecasting
 #+author: Matt Brigida, Ph.D.
-#+PROPERTY: header-args :eval yes
+#+PROPERTY: header-args :eval no
 #+SETUPFILE: https://fniessen.github.io/org-html-themes/org/theme-readtheorg.setup
 #+HTML_HEAD: <style>pre.src{background:#343131;color:white;} </style>
 
@@ -20,10 +20,11 @@ http://mis.nyiso.com/public/csv/pal/20220501pal_csv.zip
 Let's create a function that will pull data for a month and process it forecast.  It has to:
 
 + Download the file
-+ unzip it 
++ Unzip it 
++ Concatenate the individual DataFrames into one
 
 #+name: data-function
-#+begin_src python :session *py* :eval yes
+#+begin_src python :session *py* 
 import urllib.request
 import zipfile
 import pandas as pd
@@ -52,13 +53,13 @@ def get_data(month):    # in yyyymm format
 
 #+RESULTS: data-function
 
-#+begin_src python :session *py* :eval yes :cache yes
+#+begin_src python :session *py* 
 mar23 = get_data("202303")
 #+end_src
 
 #+RESULTS[7eb8712217d5de679caf8280ff5de2bd82829abd]:
 
-#+begin_src python :session *py* :eval yes :exports both
+#+begin_src python :session *py* :exports both
 mar23
 #+end_src
 
@@ -81,10 +82,17 @@ Time Stamp
 [100881 rows x 4 columns]
 #+end_example
 
+#+begin_src python :session *py* :exports both
+## save the data so we don't have to run every time
+mar23.to_csv("./mar23.csv")
+#+end_src
+
+#+RESULTS[7049f90aee12cc510343a6bfd9bba0b90164d2ab]:
+: None
 
 Below are functions to filter by Name and visualize:
 
-#+begin_src python :session *py* :eval yes :cache yes :exports both
+#+begin_src python :session *py* :exports both
 def one_location_time_series(df, name):
     return(df[df['Name'] == name]['Load'])
 
@@ -108,9 +116,9 @@ Time Stamp
 Name: Load, Length: 9171, dtype: float64
 #+end_example
 
-#+begin_src python :session *py* :eval yes :cache yes
+#+begin_src python :session *py*  
 def elec_plot(df, name):
-    one_location_time_series(df, name)["Load"].plot.line()
+    one_location_time_series(df, name).plot.line()
     plt.savefig('line_plot.png')
     plt.close()
 #+end_src

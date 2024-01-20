@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+<head>
+<!-- 2024-01-20 Sat 12:43 -->
+<meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Load Forecasting</title>
+<meta name="author" content="Matt Brigida, Ph.D." />
+<meta name="generator" content="Org Mode" />
+<link rel="stylesheet" type="text/css" href="https://fniessen.github.io/org-html-themes/src/readtheorg_theme/css/htmlize.css"/>
+<link rel="stylesheet" type="text/css" href="https://fniessen.github.io/org-html-themes/src/readtheorg_theme/css/readtheorg.css"/>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/js/bootstrap.min.js"></script>
+<script type="text/javascript" src="https://fniessen.github.io/org-html-themes/src/lib/js/jquery.stickytableheaders.min.js"></script>
+<script type="text/javascript" src="https://fniessen.github.io/org-html-themes/src/readtheorg_theme/js/readtheorg.js"></script>
+<style>pre.src{background:#343131;color:white;} </style>
+</head>
+<body>
+<div id="content" class="content">
+<h1 class="title">Load Forecasting</h1>
+<div id="table-of-contents" role="doc-toc">
+<h2>Table of Contents</h2>
+<div id="text-table-of-contents" role="doc-toc">
+<ul>
+<li><a href="#org04d73d7">1. NYISO Data</a></li>
+<li><a href="#orgd3b088a">2. Forecasting</a></li>
+</ul>
+</div>
+</div>
+
+<div id="outline-container-org04d73d7" class="outline-2">
+<h2 id="org04d73d7"><span class="section-number-2">1.</span> NYISO Data</h2>
+<div class="outline-text-2" id="text-1">
+<p>
+We can pull real-time load data from the following URL.  The example URL pulls data for May 2022.
+</p>
+
+<p>
+<a href="http://mis.nyiso.com/public/csv/pal/20220501pal_csv.zip">http://mis.nyiso.com/public/csv/pal/20220501pal_csv.zip</a>
+</p>
+
+
+<p>
+Let's create a function that will pull data for a month and process it forecast.  It has to:
+</p>
+
+<ul class="org-ul">
+<li>Download the file</li>
+<li>Unzip it</li>
+<li>Concatenate the individual DataFrames into one</li>
+</ul>
+
+<div class="org-src-container">
+<pre class="src src-python" id="org1a4d174"><span style="color: #859900; font-weight: bold;">import</span> urllib.request
+<span style="color: #859900; font-weight: bold;">import</span> zipfile
+<span style="color: #859900; font-weight: bold;">import</span> pandas <span style="color: #859900; font-weight: bold;">as</span> pd
+
+<span style="color: #859900; font-weight: bold;">def</span> <span style="color: #268bd2;">get_data</span>(month):    <span style="color: #586e75;"># </span><span style="color: #586e75;">in yyyymm format</span>
+    <span style="color: #268bd2;">url</span> = <span style="color: #2aa198;">"http://mis.nyiso.com/public/csv/pal/"</span> + <span style="color: #839496; font-weight: bold;">str</span>(month) + <span style="color: #2aa198;">"01pal_csv.zip"</span>
+<span style="color: #586e75;"># </span><span style="color: #586e75;">download the zip file</span>
+    <span style="color: #268bd2;">filename</span>, <span style="color: #268bd2;">headers</span> = urllib.request.urlretrieve(url)
+
+<span style="color: #586e75;"># </span><span style="color: #586e75;">extract the csv files from the zip</span>
+    <span style="color: #859900; font-weight: bold;">with</span> zipfile.ZipFile(filename, <span style="color: #2aa198;">"r"</span>) <span style="color: #859900; font-weight: bold;">as</span> zip_ref:
+        <span style="color: #268bd2;">csv_filenames</span> = [f.filename <span style="color: #859900; font-weight: bold;">for</span> f <span style="color: #859900; font-weight: bold;">in</span> zip_ref.filelist <span style="color: #859900; font-weight: bold;">if</span> f.filename.endswith(<span style="color: #2aa198;">".csv"</span>)]
+        <span style="color: #268bd2;">dfs</span> = []
+        <span style="color: #859900; font-weight: bold;">for</span> csv_filename <span style="color: #859900; font-weight: bold;">in</span> csv_filenames:
+            <span style="color: #586e75;"># </span><span style="color: #586e75;">read csv into pandas dataframe</span>
+            <span style="color: #859900; font-weight: bold;">with</span> zip_ref.<span style="color: #839496; font-weight: bold;">open</span>(csv_filename) <span style="color: #859900; font-weight: bold;">as</span> csv_file:
+                <span style="color: #268bd2;">df</span> = pd.read_csv(csv_file)
+                dfs.append(df)
+
+    <span style="color: #586e75;"># </span><span style="color: #586e75;">concatenate the dataframes into a single dataframe</span>
+    <span style="color: #268bd2;">df_concatenated</span> = pd.concat(dfs)
+    df_concatenated.set_index(<span style="color: #2aa198;">'Time Stamp'</span>, drop=<span style="color: #268bd2; font-weight: bold;">True</span>, inplace=<span style="color: #268bd2; font-weight: bold;">True</span>)
+
+    <span style="color: #859900; font-weight: bold;">return</span>(df_concatenated)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-python"><span style="color: #268bd2;">mar23</span> = get_data(<span style="color: #2aa198;">"202303"</span>)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-python">mar23
+</pre>
+</div>
+
+<pre class="example" id="org3fe5654">
+                    Time Zone    Name   PTID       Load
+Time Stamp                                             
+03/01/2023 00:00:00       EST  CAPITL  61757  1226.9684
+03/01/2023 00:00:00       EST  CENTRL  61754  1722.6571
+03/01/2023 00:00:00       EST  DUNWOD  61760   596.3434
+03/01/2023 00:00:00       EST  GENESE  61753  1008.5693
+03/01/2023 00:00:00       EST  HUD VL  61758  1013.8084
+...                       ...     ...    ...        ...
+03/31/2023 23:55:00       EDT  MHK VL  61756   713.8065
+03/31/2023 23:55:00       EDT  MILLWD  61759   279.8333
+03/31/2023 23:55:00       EDT  N.Y.C.  61761  4579.5044
+03/31/2023 23:55:00       EDT   NORTH  61755   658.6137
+03/31/2023 23:55:00       EDT    WEST  61752  1477.0037
+
+[100881 rows x 4 columns]
+</pre>
+
+<div class="org-src-container">
+<pre class="src src-python"><span style="color: #586e75;">## </span><span style="color: #586e75;">save the data so we don't have to run every time</span>
+mar23.to_csv(<span style="color: #2aa198;">"./mar23.csv"</span>)
+</pre>
+</div>
+
+<pre class="example">
+None
+</pre>
+
+
+<p>
+Below are functions to filter by Name and visualize:
+</p>
+
+<div class="org-src-container">
+<pre class="src src-python"><span style="color: #859900; font-weight: bold;">def</span> <span style="color: #268bd2;">one_location_time_series</span>(df, name):
+    <span style="color: #859900; font-weight: bold;">return</span>(df[df[<span style="color: #2aa198;">'Name'</span>] == name][<span style="color: #2aa198;">'Load'</span>])
+
+one_location_time_series(mar23, <span style="color: #2aa198;">'NORTH'</span>)
+</pre>
+</div>
+
+<pre class="example" id="orgd16ca78">
+Time Stamp
+03/01/2023 00:00:00    705.3594
+03/01/2023 00:05:00    706.4240
+03/01/2023 00:10:00    699.5104
+03/01/2023 00:15:00    686.3651
+03/01/2023 00:20:00    702.8407
+                         ...   
+03/31/2023 23:42:23    659.7048
+03/31/2023 23:43:47    662.0710
+03/31/2023 23:45:00    660.0018
+03/31/2023 23:50:00    653.6038
+03/31/2023 23:55:00    658.6137
+Name: Load, Length: 9171, dtype: float64
+</pre>
+
+<div class="org-src-container">
+<pre class="src src-python"><span style="color: #859900; font-weight: bold;">def</span> <span style="color: #268bd2;">elec_plot</span>(df, name):
+    one_location_time_series(df, name).plot.line()
+    plt.savefig(<span style="color: #2aa198;">'line_plot.png'</span>)
+    plt.close()
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-python">elec_plot(mar23, <span style="color: #2aa198;">'NORTH'</span>)
+</pre>
+</div>
+
+
+<div id="orgc300b5f" class="figure">
+<p><img src="line_plot.png" alt="line_plot.png" />
+</p>
+<p><span class="figure-number">Figure 1: </span>Load (in MW) Time Series</p>
+</div>
+</div>
+</div>
+
+
+<div id="outline-container-orgd3b088a" class="outline-2">
+<h2 id="orgd3b088a"><span class="section-number-2">2.</span> Forecasting</h2>
+</div>
+</div>
+<div id="postamble" class="status">
+<p class="author">Author: Matt Brigida, Ph.D.</p>
+<p class="date">Created: 2024-01-20 Sat 12:43</p>
+<p class="validation"><a href="https://validator.w3.org/check?uri=referer">Validate</a></p>
+</div>
+</body>
+</html>
